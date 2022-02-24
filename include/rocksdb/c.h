@@ -366,6 +366,9 @@ rocksdb_create_column_family_with_import(
     const char* column_family_name,
     const rocksdb_export_import_files_metadata_t* metadata, char** errptr);
 
+extern ROCKSDB_LIBRARY_API const char* rocksdb_marshal_export_import_files_metadata(
+    rocksdb_export_import_files_metadata_t* metadata, char** errptr);
+
 extern ROCKSDB_LIBRARY_API rocksdb_column_family_handle_t*
 rocksdb_create_column_family_with_ttl(
     rocksdb_t* db, const rocksdb_options_t* column_family_options,
