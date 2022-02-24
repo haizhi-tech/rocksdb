@@ -137,6 +137,8 @@ typedef struct rocksdb_wal_iterator_t rocksdb_wal_iterator_t;
 typedef struct rocksdb_wal_readoptions_t rocksdb_wal_readoptions_t;
 typedef struct rocksdb_memory_consumers_t rocksdb_memory_consumers_t;
 typedef struct rocksdb_memory_usage_t rocksdb_memory_usage_t;
+typedef struct rocksdb_export_import_files_metadata_t rocksdb_export_import_files_metadata_t;
+typedef struct rocksdb_live_file_metadata rocksdb_live_file_metadata;
 
 /* DB operations */
 
@@ -362,6 +364,11 @@ extern ROCKSDB_LIBRARY_API void rocksdb_checkpoint_create(
     rocksdb_checkpoint_t* checkpoint, const char* checkpoint_dir,
     uint64_t log_size_for_flush, char** errptr);
 
+extern ROCKSDB_LIBRARY_API rocksdb_export_import_files_metadata_t*
+rocksdb_column_family_export(rocksdb_checkpoint_t* checkpoint,
+    rocksdb_column_family_handle_t* handle,
+    const char* export_dir, char** errptr);
+
 extern ROCKSDB_LIBRARY_API void rocksdb_checkpoint_object_destroy(
     rocksdb_checkpoint_t* checkpoint);
 
@@ -411,6 +418,34 @@ extern ROCKSDB_LIBRARY_API rocksdb_column_family_handle_t*
 rocksdb_create_column_family(rocksdb_t* db,
                              const rocksdb_options_t* column_family_options,
                              const char* column_family_name, char** errptr);
+
+extern ROCKSDB_LIBRARY_API rocksdb_column_family_handle_t*
+rocksdb_create_column_family_with_import(
+    rocksdb_t* db, const rocksdb_options_t* column_family_options,
+    const char* column_family_name,
+    const rocksdb_export_import_files_metadata_t* metadata, char** errptr);
+
+extern ROCKSDB_LIBRARY_API const char* rocksdb_marshal_export_import_files_metadata(
+    rocksdb_export_import_files_metadata_t* metadata, char** errptr);
+
+extern ROCKSDB_LIBRARY_API rocksdb_export_import_files_metadata_t*
+rocksdb_new_export_import_files_metadata(const char* db_comparator_name,
+                                         rocksdb_live_file_metadata** files,
+                                         int file_size, char** errptr);
+
+extern ROCKSDB_LIBRARY_API rocksdb_live_file_metadata*
+rocksdb_new_live_file_metadata(const char* column_family_name, int level, 
+                               const char* relative_filename, const char* name, 
+                               uint64_t file_number, int file_type,
+                               const char* directory, const char* db_path, int32_t size,
+                               uint64_t smallest_seqno, uint64_t largest_seqno, 
+                               const char* hex_smallestkey, const char* hex_largestkey, 
+                               uint64_t num_reads_sampled, int32_t being_compacted,
+                               uint64_t num_entries, uint64_t num_deletions, 
+                               uint8_t temperature, uint64_t oldest_blob_file_number,
+                               uint64_t oldest_ancester_time, uint64_t file_creation_time,
+                               const char* file_checksum, const char* file_checksum_func_name, 
+                               char** errptr);
 
 extern ROCKSDB_LIBRARY_API rocksdb_column_family_handle_t*
 rocksdb_create_column_family_with_ttl(

@@ -11,6 +11,7 @@
 
 #include <cstdlib>
 #include <map>
+#include <string>
 #include <unordered_set>
 #include <vector>
 
@@ -26,6 +27,7 @@
 #include "rocksdb/iterator.h"
 #include "rocksdb/memtablerep.h"
 #include "rocksdb/merge_operator.h"
+#include "rocksdb/metadata.h"
 #include "rocksdb/options.h"
 #include "rocksdb/perf_context.h"
 #include "rocksdb/rate_limiter.h"
@@ -74,10 +76,13 @@ using ROCKSDB_NAMESPACE::DBOptions;
 using ROCKSDB_NAMESPACE::DbPath;
 using ROCKSDB_NAMESPACE::Env;
 using ROCKSDB_NAMESPACE::EnvOptions;
+using ROCKSDB_NAMESPACE::ExportImportFilesMetaData;
 using ROCKSDB_NAMESPACE::FileLock;
+using ROCKSDB_NAMESPACE::FileType;
 using ROCKSDB_NAMESPACE::FilterPolicy;
 using ROCKSDB_NAMESPACE::FlushOptions;
 using ROCKSDB_NAMESPACE::HyperClockCacheOptions;
+using ROCKSDB_NAMESPACE::ImportColumnFamilyOptions;
 using ROCKSDB_NAMESPACE::InfoLogLevel;
 using ROCKSDB_NAMESPACE::IngestExternalFileOptions;
 using ROCKSDB_NAMESPACE::Iterator;
@@ -114,6 +119,7 @@ using ROCKSDB_NAMESPACE::SstFileMetaData;
 using ROCKSDB_NAMESPACE::SstFileWriter;
 using ROCKSDB_NAMESPACE::Status;
 using ROCKSDB_NAMESPACE::TablePropertiesCollectorFactory;
+using ROCKSDB_NAMESPACE::Temperature;
 using ROCKSDB_NAMESPACE::Transaction;
 using ROCKSDB_NAMESPACE::TransactionDB;
 using ROCKSDB_NAMESPACE::TransactionDBOptions;
@@ -846,6 +852,207 @@ void rocksdb_checkpoint_create(rocksdb_checkpoint_t* checkpoint,
                         std::string(checkpoint_dir), log_size_for_flush));
 }
 
+struct rocksdb_export_import_files_metadata_t { ExportImportFilesMetaData* rep; };
+
+struct rocksdb_live_file_metadata { LiveFileMetaData* rep; };
+
+rocksdb_export_import_files_metadata_t* rocksdb_column_family_export(
+    rocksdb_checkpoint_t* checkpoint, rocksdb_column_family_handle_t* handle,
+    const char* export_dir, char** errptr) {
+  ExportImportFilesMetaData* metadata;
+  if (SaveError(errptr, checkpoint->rep->ExportColumnFamily(
+                            handle->rep, std::string(export_dir), &metadata))) {
+    return nullptr;
+  }
+  rocksdb_export_import_files_metadata_t* result =
+      new rocksdb_export_import_files_metadata_t;
+  result->rep = metadata;
+  return result;
+}
+
+const char* rocksdb_marshal_export_import_files_metadata(
+    rocksdb_export_import_files_metadata_t* metadata, char** errptr) {
+  auto format = [](std::string s) -> std::string {
+    std::string result = "\"";
+    if (!s.empty()) {
+      result.append(s);
+    }
+    result.append("\"");
+    return result;
+  };
+
+  auto string_to_hex = [](std::string s) -> std::string {
+    const char hex_digits[] = "0123456789abcdef";
+
+    std::string result;
+    
+    if (s.empty()) {
+      return result;
+    }
+
+    result.reserve(s.length() * 2);
+    for (unsigned char c : s)
+    {
+        result.push_back(hex_digits[c >> 4]);
+        result.push_back(hex_digits[c & 15]);
+    }
+    return result;
+  };
+
+  std::string json = "{";
+  json.append("\"db_comparator_name\":");
+  json.append(format(metadata->rep->db_comparator_name));
+  json.append(",\"files\":[");
+  if (metadata->rep->files.size() != 0) {
+    for (size_t i = 0; i < metadata->rep->files.size(); ++i) {
+      if (i == 0) {
+        json.append("{");
+      } else {
+        json.append(",{");
+      }
+      auto file = metadata->rep->files[i];
+      json.append("\"column_family_name\":");
+      json.append(format(file.column_family_name));
+      json.append(",\"level\":");
+      json.append(std::to_string(file.level));
+      json.append(",\"relative_filename\":");
+      json.append(format(file.relative_filename));
+      json.append(",\"name\":"), json.append(format(file.name));
+      json.append(",\"file_number\":");
+      json.append(std::to_string(file.file_number));
+      json.append(",\"file_type\":");
+      json.append(std::to_string(int(file.file_type)));
+      json.append(",\"directory\":");
+      json.append(format(file.directory));
+      json.append(",\"db_path\":");
+      json.append(format(file.db_path));
+      json.append(",\"size\":");
+      json.append(std::to_string(file.size));
+      json.append(",\"smallest_seqno\":");
+      json.append(std::to_string(file.smallest_seqno));
+      json.append(",\"largest_seqno\":");
+      json.append(std::to_string(file.largest_seqno));
+      json.append(",\"hex_smallestkey\":");
+      json.append(format(string_to_hex(file.smallestkey)));
+      json.append(",\"hex_largestkey\":");
+      json.append(format(string_to_hex(file.largestkey)));
+      json.append(",\"num_reads_sampled\":");
+      json.append(std::to_string(file.num_reads_sampled));
+      json.append(",\"being_compacted\":");
+      json.append(std::to_string(file.being_compacted));
+      json.append(",\"num_entries\":");
+      json.append(std::to_string(file.num_entries));
+      json.append(",\"num_deletions\":");
+      json.append(std::to_string(file.num_deletions));
+      json.append(",\"temperature\":"),
+      json.append(std::to_string(uint8_t(file.temperature)));
+      json.append(",\"oldest_blob_file_number\":");
+      json.append(std::to_string(file.oldest_blob_file_number));
+      json.append(",\"oldest_ancester_time\":");
+      json.append(std::to_string(file.oldest_ancester_time));
+      json.append(",\"file_creation_time\":");
+      json.append(std::to_string(file.file_creation_time));
+      json.append(",\"file_checksum\":");
+      json.append(format(file.file_checksum));
+      json.append(",\"file_checksum_func_name\":");
+      json.append(format(file.file_checksum_func_name));
+      json.append("}");
+    }
+  }
+  json.append("]}");
+
+  const char* result = strcpy(new char[json.length() + 1], json.c_str());
+  return result;
+}
+
+rocksdb_export_import_files_metadata_t* rocksdb_new_export_import_files_metadata(
+    const char* db_comparator_name, rocksdb_live_file_metadata** files, 
+    int file_size, char** errptr) {
+  std::vector<LiveFileMetaData> live_files;
+  for (int i = 0; i < file_size; i++) {
+    auto live_file = files[i]->rep;
+    live_files.push_back(*live_file);
+  }
+  ExportImportFilesMetaData* metadata = new ExportImportFilesMetaData;
+  metadata->db_comparator_name = std::string(db_comparator_name);
+  metadata->files = live_files;
+  rocksdb_export_import_files_metadata_t* result =
+      new rocksdb_export_import_files_metadata_t;
+  result->rep = metadata;
+  return result;
+}
+
+rocksdb_live_file_metadata* rocksdb_new_live_file_metadata(
+    const char* column_family_name, int level, const char* relative_filename,
+    const char* name, uint64_t file_number, int file_type,
+    const char* directory, const char* db_path, int32_t size,
+    uint64_t smallest_seqno, uint64_t largest_seqno, const char* hex_smallestkey,
+    const char* hex_largestkey, uint64_t num_reads_sampled, int32_t being_compacted,
+    uint64_t num_entries, uint64_t num_deletions, uint8_t temperature,
+    uint64_t oldest_blob_file_number, uint64_t oldest_ancester_time,
+    uint64_t file_creation_time, const char* file_checksum,
+    const char* file_checksum_func_name, char** errptr) {
+  auto hex_to_string = [](std::string hex) -> std::string {
+    const signed char hex_values[256] = {
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+         0,  1,  2,  3,  4,  5,  6,  7,  8,  9, -1, -1, -1, -1, -1, -1,
+        -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    };
+
+    const auto len = hex.length();
+
+    std::string result;
+    result.reserve(len / 2);
+    for (auto it = hex.begin(); it != hex.end(); ) {
+        int hi = hex_values[int(*it++)];
+        int lo = hex_values[int(*it++)];
+        result.push_back(hi << 4 | lo);
+    }
+    return result;
+  };   
+  
+  LiveFileMetaData* metadata = new LiveFileMetaData;
+  metadata->column_family_name = std::string(column_family_name);
+  metadata->level = level;
+  metadata->relative_filename = std::string(relative_filename);
+  metadata->name = std::string(name);
+  metadata->file_number = file_number;
+  metadata->file_type = FileType(file_type);
+  metadata->directory = std::string(directory);
+  metadata->db_path = std::string(db_path);
+  metadata->size = size;
+  metadata->smallest_seqno = smallest_seqno;
+  metadata->largest_seqno = largest_seqno;
+  metadata->smallestkey = hex_to_string(std::string(hex_smallestkey));
+  metadata->largestkey = hex_to_string(std::string(hex_largestkey));
+  metadata->num_reads_sampled = num_reads_sampled;
+  metadata->being_compacted = being_compacted == 1 ? true : false;
+  metadata->num_entries = num_entries;
+  metadata->num_deletions = num_deletions;
+  metadata->temperature = Temperature(temperature);
+  metadata->oldest_blob_file_number = oldest_blob_file_number;
+  metadata->oldest_ancester_time = oldest_ancester_time;
+  metadata->file_creation_time = file_creation_time;
+  metadata->file_checksum = std::string(file_checksum);
+  metadata->file_checksum_func_name = std::string(file_checksum_func_name);
+  rocksdb_live_file_metadata* result = new rocksdb_live_file_metadata;
+  result->rep = metadata;
+  return result;
+}
+
 void rocksdb_checkpoint_object_destroy(rocksdb_checkpoint_t* checkpoint) {
   delete checkpoint->rep;
   delete checkpoint;
@@ -1054,6 +1261,21 @@ rocksdb_column_family_handle_t* rocksdb_create_column_family(
   SaveError(errptr, db->rep->CreateColumnFamily(
                         ColumnFamilyOptions(column_family_options->rep),
                         std::string(column_family_name), &(handle->rep)));
+  return handle;
+}
+
+rocksdb_column_family_handle_t* rocksdb_create_column_family_with_import(
+    rocksdb_t* db, const rocksdb_options_t* column_family_options,
+    const char* column_family_name,
+    const rocksdb_export_import_files_metadata_t* metadata, char** errptr) {
+  ImportColumnFamilyOptions import_options;
+  rocksdb_column_family_handle_t* handle = new rocksdb_column_family_handle_t;
+  if (SaveError(errptr, db->rep->CreateColumnFamilyWithImport(
+                            ColumnFamilyOptions(column_family_options->rep),
+                            std::string(column_family_name), import_options,
+                            *(metadata->rep), &(handle->rep)))) {
+    return nullptr;
+  }
   return handle;
 }
 
