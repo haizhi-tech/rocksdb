@@ -128,6 +128,7 @@ typedef struct rocksdb_wal_iterator_t rocksdb_wal_iterator_t;
 typedef struct rocksdb_wal_readoptions_t rocksdb_wal_readoptions_t;
 typedef struct rocksdb_memory_consumers_t rocksdb_memory_consumers_t;
 typedef struct rocksdb_memory_usage_t rocksdb_memory_usage_t;
+typedef struct rocksdb_export_import_files_metadata_t rocksdb_export_import_files_metadata_t;
 
 /* DB operations */
 
@@ -310,6 +311,11 @@ rocksdb_checkpoint_object_create(rocksdb_t* db, char** errptr);
 extern ROCKSDB_LIBRARY_API void rocksdb_checkpoint_create(
     rocksdb_checkpoint_t* checkpoint, const char* checkpoint_dir,
     uint64_t log_size_for_flush, char** errptr);
+
+extern ROCKSDB_LIBRARY_API rocksdb_export_import_files_metadata_t*
+rocksdb_column_family_export(rocksdb_checkpoint_t* checkpoint,
+    rocksdb_column_family_handle_t* handle,
+    const char* export_dir, char** errptr);
 
 extern ROCKSDB_LIBRARY_API void rocksdb_checkpoint_object_destroy(
     rocksdb_checkpoint_t* checkpoint);

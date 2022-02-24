@@ -72,6 +72,7 @@ using ROCKSDB_NAMESPACE::DBOptions;
 using ROCKSDB_NAMESPACE::DbPath;
 using ROCKSDB_NAMESPACE::Env;
 using ROCKSDB_NAMESPACE::EnvOptions;
+using ROCKSDB_NAMESPACE::ExportImportFilesMetaData;
 using ROCKSDB_NAMESPACE::FileLock;
 using ROCKSDB_NAMESPACE::FilterPolicy;
 using ROCKSDB_NAMESPACE::FlushOptions;
@@ -806,6 +807,22 @@ void rocksdb_checkpoint_create(rocksdb_checkpoint_t* checkpoint,
                                uint64_t log_size_for_flush, char** errptr) {
   SaveError(errptr, checkpoint->rep->CreateCheckpoint(
                         std::string(checkpoint_dir), log_size_for_flush));
+}
+
+struct rocksdb_export_import_files_metadata_t { ExportImportFilesMetaData* rep; };
+
+rocksdb_export_import_files_metadata_t* rocksdb_column_family_export(
+    rocksdb_checkpoint_t* checkpoint, rocksdb_column_family_handle_t* handle,
+    const char* export_dir, char** errptr) {
+  ExportImportFilesMetaData* metadata;
+  if (SaveError(errptr, checkpoint->rep->ExportColumnFamily(
+                            handle->rep, std::string(export_dir), &metadata))) {
+    return nullptr;
+  }
+  rocksdb_export_import_files_metadata_t* result =
+      new rocksdb_export_import_files_metadata_t;
+  result->rep = metadata;
+  return result;
 }
 
 void rocksdb_checkpoint_object_destroy(rocksdb_checkpoint_t* checkpoint) {
