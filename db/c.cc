@@ -76,6 +76,7 @@ using ROCKSDB_NAMESPACE::ExportImportFilesMetaData;
 using ROCKSDB_NAMESPACE::FileLock;
 using ROCKSDB_NAMESPACE::FilterPolicy;
 using ROCKSDB_NAMESPACE::FlushOptions;
+using ROCKSDB_NAMESPACE::ImportColumnFamilyOptions;
 using ROCKSDB_NAMESPACE::InfoLogLevel;
 using ROCKSDB_NAMESPACE::IngestExternalFileOptions;
 using ROCKSDB_NAMESPACE::Iterator;
@@ -1001,6 +1002,21 @@ rocksdb_column_family_handle_t* rocksdb_create_column_family(
   SaveError(errptr,
       db->rep->CreateColumnFamily(ColumnFamilyOptions(column_family_options->rep),
         std::string(column_family_name), &(handle->rep)));
+  return handle;
+}
+
+rocksdb_column_family_handle_t* rocksdb_create_column_family_with_import(
+    rocksdb_t* db, const rocksdb_options_t* column_family_options,
+    const char* column_family_name,
+    const rocksdb_export_import_files_metadata_t* metadata, char** errptr) {
+  ImportColumnFamilyOptions import_options;
+  rocksdb_column_family_handle_t* handle = new rocksdb_column_family_handle_t;
+  if (SaveError(errptr, db->rep->CreateColumnFamilyWithImport(
+                            ColumnFamilyOptions(column_family_options->rep),
+                            std::string(column_family_name), import_options,
+                            *(metadata->rep), &(handle->rep)))) {
+    return nullptr;
+  }
   return handle;
 }
 
