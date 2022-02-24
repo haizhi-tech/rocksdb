@@ -13,6 +13,7 @@
 
 #include <cstdlib>
 #include <map>
+#include <string>
 #include <unordered_set>
 #include <vector>
 
@@ -28,6 +29,7 @@
 #include "rocksdb/iterator.h"
 #include "rocksdb/memtablerep.h"
 #include "rocksdb/merge_operator.h"
+#include "rocksdb/metadata.h"
 #include "rocksdb/options.h"
 #include "rocksdb/perf_context.h"
 #include "rocksdb/rate_limiter.h"
@@ -858,6 +860,83 @@ rocksdb_export_import_files_metadata_t* rocksdb_column_family_export(
   rocksdb_export_import_files_metadata_t* result =
       new rocksdb_export_import_files_metadata_t;
   result->rep = metadata;
+  return result;
+}
+
+const char* rocksdb_marshal_export_import_files_metadata(
+    rocksdb_export_import_files_metadata_t* metadata, char** errptr) {
+  auto format = [](std::string s) -> std::string {
+    std::string result = "\"";
+    if (!s.empty()) {
+      result.append(s);
+    }
+    result.append("\"");
+    return result;
+  };
+
+  std::string json = "{";
+  json.append("\"db_comparator_name\":");
+  json.append(format(metadata->rep->db_comparator_name));
+  json.append(",\"files\":[");
+  if (metadata->rep->files.size() != 0) {
+    for (size_t i = 0; i < metadata->rep->files.size(); ++i) {
+      if (i == 0) {
+        json.append("{");
+      } else {
+        json.append(",{");
+      }
+      auto file = metadata->rep->files[i];
+      json.append("\"column_family_name\":");
+      json.append(format(file.column_family_name));
+      json.append(",\"level\":");
+      json.append(std::to_string(file.level));
+      json.append(",\"relative_filename\":");
+      json.append(format(file.relative_filename));
+      json.append(",\"name\":"), json.append(format(file.name));
+      json.append(",\"file_number\":");
+      json.append(std::to_string(file.file_number));
+      json.append(",\"file_type\":");
+      json.append(std::to_string(int(file.file_type)));
+      json.append(",\"directory\":");
+      json.append(format(file.directory));
+      json.append(",\"db_path\":");
+      json.append(format(file.db_path));
+      json.append(",\"size\":");
+      json.append(std::to_string(file.size));
+      json.append(",\"smallest_seqno\":");
+      json.append(std::to_string(file.smallest_seqno));
+      json.append(",\"largest_seqno\":");
+      json.append(std::to_string(file.largest_seqno));
+      json.append(",\"smallestkey\":");
+      json.append(format(file.smallestkey));
+      json.append(",\"largestkey\":");
+      json.append(format(file.largestkey));
+      json.append(",\"num_reads_sampled\":");
+      json.append(std::to_string(file.num_reads_sampled));
+      json.append(",\"being_compacted\":");
+      json.append(std::to_string(file.being_compacted));
+      json.append(",\"num_entries\":");
+      json.append(std::to_string(file.num_entries));
+      json.append(",\"num_deletions\":");
+      json.append(std::to_string(file.num_deletions));
+      json.append(",\"temperature\":"),
+          json.append(std::to_string(uint8_t(file.temperature)));
+      json.append(",\"oldest_blob_file_number\":");
+      json.append(std::to_string(file.oldest_blob_file_number));
+      json.append(",\"oldest_ancester_time\":");
+      json.append(std::to_string(file.oldest_ancester_time));
+      json.append(",\"file_creation_time\":");
+      json.append(std::to_string(file.file_creation_time));
+      json.append(",\"file_checksum\":");
+      json.append(format(file.file_checksum));
+      json.append(",\"file_checksum_func_name\":");
+      json.append(format(file.file_checksum_func_name));
+      json.append("}");
+    }
+  }
+  json.append("]}");
+
+  const char* result = strcpy(new char[json.length() + 1], json.c_str());
   return result;
 }
 
