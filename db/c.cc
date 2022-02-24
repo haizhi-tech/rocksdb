@@ -79,6 +79,7 @@ using ROCKSDB_NAMESPACE::Env;
 using ROCKSDB_NAMESPACE::EnvOptions;
 using ROCKSDB_NAMESPACE::ExportImportFilesMetaData;
 using ROCKSDB_NAMESPACE::FileLock;
+using ROCKSDB_NAMESPACE::FileType;
 using ROCKSDB_NAMESPACE::FilterPolicy;
 using ROCKSDB_NAMESPACE::FlushOptions;
 using ROCKSDB_NAMESPACE::ImportColumnFamilyOptions;
@@ -118,6 +119,7 @@ using ROCKSDB_NAMESPACE::SstFileMetaData;
 using ROCKSDB_NAMESPACE::SstFileWriter;
 using ROCKSDB_NAMESPACE::Status;
 using ROCKSDB_NAMESPACE::TablePropertiesCollectorFactory;
+using ROCKSDB_NAMESPACE::Temperature;
 using ROCKSDB_NAMESPACE::Transaction;
 using ROCKSDB_NAMESPACE::TransactionDB;
 using ROCKSDB_NAMESPACE::TransactionDBOptions;
@@ -849,6 +851,8 @@ void rocksdb_checkpoint_create(rocksdb_checkpoint_t* checkpoint,
 
 struct rocksdb_export_import_files_metadata_t { ExportImportFilesMetaData* rep; };
 
+struct rocksdb_live_file_metadata { LiveFileMetaData* rep; };
+
 rocksdb_export_import_files_metadata_t* rocksdb_column_family_export(
     rocksdb_checkpoint_t* checkpoint, rocksdb_column_family_handle_t* handle,
     const char* export_dir, char** errptr) {
@@ -937,6 +941,62 @@ const char* rocksdb_marshal_export_import_files_metadata(
   json.append("]}");
 
   const char* result = strcpy(new char[json.length() + 1], json.c_str());
+  return result;
+}
+
+rocksdb_export_import_files_metadata_t* rocksdb_new_export_import_files_metadata(
+    const char* db_comparator_name, rocksdb_live_file_metadata** files, 
+    int file_size, char** errptr) {
+  std::vector<LiveFileMetaData> live_files;
+  for (int i = 0; i < file_size; i++) {
+    auto live_file = files[i]->rep;
+    live_files.push_back(*live_file);
+  }
+  ExportImportFilesMetaData* metadata = new ExportImportFilesMetaData;
+  metadata->db_comparator_name = std::string(db_comparator_name);
+  metadata->files = live_files;
+  rocksdb_export_import_files_metadata_t* result =
+      new rocksdb_export_import_files_metadata_t;
+  result->rep = metadata;
+  return result;
+}
+
+rocksdb_live_file_metadata* rocksdb_new_live_file_metadata(
+    const char* column_family_name, int level, const char* relative_filename,
+    const char* name, uint64_t file_number, int file_type,
+    const char* directory, const char* db_path, int32_t size,
+    uint64_t smallest_seqno, uint64_t largest_seqno, const char* smallestkey,
+    const char* largestkey, uint64_t num_reads_sampled, int32_t being_compacted,
+    uint64_t num_entries, uint64_t num_deletions, uint8_t temperature,
+    uint64_t oldest_blob_file_number, uint64_t oldest_ancester_time,
+    uint64_t file_creation_time, const char* file_checksum,
+    const char* file_checksum_func_name, char** errptr) {
+  LiveFileMetaData* metadata = new LiveFileMetaData;
+  metadata->column_family_name = std::string(column_family_name);
+  metadata->level = level;
+  metadata->relative_filename = std::string(relative_filename);
+  metadata->name = std::string(name);
+  metadata->file_number = file_number;
+  metadata->file_type = FileType(file_type);
+  metadata->directory = std::string(directory);
+  metadata->db_path = std::string(db_path);
+  metadata->size = size;
+  metadata->smallest_seqno = smallest_seqno;
+  metadata->largest_seqno = largest_seqno;
+  metadata->smallestkey = std::string(smallestkey);
+  metadata->largestkey = std::string(largestkey);
+  metadata->num_reads_sampled = num_reads_sampled;
+  metadata->being_compacted = being_compacted == 1 ? true : false;
+  metadata->num_entries = num_entries;
+  metadata->num_deletions = num_deletions;
+  metadata->temperature = Temperature(temperature);
+  metadata->oldest_blob_file_number = oldest_blob_file_number;
+  metadata->oldest_ancester_time = oldest_ancester_time;
+  metadata->file_creation_time = file_creation_time;
+  metadata->file_checksum = std::string(file_checksum);
+  metadata->file_checksum_func_name = std::string(file_checksum_func_name);
+  rocksdb_live_file_metadata* result = new rocksdb_live_file_metadata;
+  result->rep = metadata;
   return result;
 }
 
