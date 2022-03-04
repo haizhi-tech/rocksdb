@@ -843,6 +843,24 @@ const char* rocksdb_marshal_export_import_files_metadata(
     return result;
   };
 
+  auto string_to_hex = [](std::string s) -> std::string {
+    const char hex_digits[] = "0123456789abcdef";
+
+    std::string result;
+    
+    if (s.empty()) {
+      return result;
+    }
+
+    result.reserve(s.length() * 2);
+    for (unsigned char c : s)
+    {
+        result.push_back(hex_digits[c >> 4]);
+        result.push_back(hex_digits[c & 15]);
+    }
+    return result;
+  };
+
   std::string json = "{";
   json.append("\"db_comparator_name\":");
   json.append(format(metadata->rep->db_comparator_name));
@@ -876,10 +894,10 @@ const char* rocksdb_marshal_export_import_files_metadata(
       json.append(std::to_string(file.smallest_seqno));
       json.append(",\"largest_seqno\":");
       json.append(std::to_string(file.largest_seqno));
-      json.append(",\"smallestkey\":");
-      json.append(format(file.smallestkey));
-      json.append(",\"largestkey\":");
-      json.append(format(file.largestkey));
+      json.append(",\"hex_smallestkey\":");
+      json.append(format(string_to_hex(file.smallestkey)));
+      json.append(",\"hex_largestkey\":");
+      json.append(format(string_to_hex(file.largestkey)));
       json.append(",\"num_reads_sampled\":");
       json.append(std::to_string(file.num_reads_sampled));
       json.append(",\"being_compacted\":");
@@ -889,7 +907,7 @@ const char* rocksdb_marshal_export_import_files_metadata(
       json.append(",\"num_deletions\":");
       json.append(std::to_string(file.num_deletions));
       json.append(",\"temperature\":"),
-          json.append(std::to_string(uint8_t(file.temperature)));
+      json.append(std::to_string(uint8_t(file.temperature)));
       json.append(",\"oldest_blob_file_number\":");
       json.append(std::to_string(file.oldest_blob_file_number));
       json.append(",\"oldest_ancester_time\":");
@@ -930,12 +948,44 @@ rocksdb_live_file_metadata* rocksdb_new_live_file_metadata(
     const char* column_family_name, int level, const char* relative_filename,
     const char* name, uint64_t file_number, int file_type,
     const char* directory, const char* db_path, int32_t size,
-    uint64_t smallest_seqno, uint64_t largest_seqno, const char* smallestkey,
-    const char* largestkey, uint64_t num_reads_sampled, int32_t being_compacted,
+    uint64_t smallest_seqno, uint64_t largest_seqno, const char* hex_smallestkey,
+    const char* hex_largestkey, uint64_t num_reads_sampled, int32_t being_compacted,
     uint64_t num_entries, uint64_t num_deletions, uint8_t temperature,
     uint64_t oldest_blob_file_number, uint64_t oldest_ancester_time,
     uint64_t file_creation_time, const char* file_checksum,
     const char* file_checksum_func_name, char** errptr) {
+  auto hex_to_string = [](std::string hex) -> std::string {
+    const signed char hex_values[256] = {
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+         0,  1,  2,  3,  4,  5,  6,  7,  8,  9, -1, -1, -1, -1, -1, -1,
+        -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    };
+
+    const auto len = hex.length();
+
+    std::string result;
+    result.reserve(len / 2);
+    for (auto it = hex.begin(); it != hex.end(); ) {
+        int hi = hex_values[int(*it++)];
+        int lo = hex_values[int(*it++)];
+        result.push_back(hi << 4 | lo);
+    }
+    return result;
+  };   
+  
   LiveFileMetaData* metadata = new LiveFileMetaData;
   metadata->column_family_name = std::string(column_family_name);
   metadata->level = level;
@@ -948,8 +998,8 @@ rocksdb_live_file_metadata* rocksdb_new_live_file_metadata(
   metadata->size = size;
   metadata->smallest_seqno = smallest_seqno;
   metadata->largest_seqno = largest_seqno;
-  metadata->smallestkey = std::string(smallestkey);
-  metadata->largestkey = std::string(largestkey);
+  metadata->smallestkey = hex_to_string(std::string(hex_smallestkey));
+  metadata->largestkey = hex_to_string(std::string(hex_largestkey));
   metadata->num_reads_sampled = num_reads_sampled;
   metadata->being_compacted = being_compacted == 1 ? true : false;
   metadata->num_entries = num_entries;
