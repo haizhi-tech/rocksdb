@@ -12,8 +12,15 @@
 // size, it uses malloc to directly get the requested size.
 
 #pragma once
+#ifndef OS_WIN
+#include <sys/mman.h>
+#endif
+#include <assert.h>
+#include <stdint.h>
 
+#include <cerrno>
 #include <cstddef>
+#include <vector>
 #include <deque>
 
 #include "memory/allocator.h"
@@ -88,7 +95,8 @@ class Arena : public Allocator {
   static size_t OptimizeBlockSize(size_t block_size);
 
  private:
-  alignas(std::max_align_t) char inline_block_[kInlineSize];
+  char inline_block_[kInlineSize]
+      __attribute__((__aligned__(alignof(max_align_t))));
   // Number of bytes allocated in one block
   const size_t kBlockSize;
   // Allocated memory blocks
