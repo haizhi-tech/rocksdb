@@ -1194,6 +1194,19 @@ class DB {
                                include_flags);
   }
 
+  virtual Status GetApproximateSizesWithOptions(
+      ColumnFamilyHandle* column_family, const Range* ranges, int n,
+      uint64_t* sizes, bool include_memtables, bool include_files,
+      double files_size_error_margin);
+
+  virtual Status GetApproximateSizesWithOptions(
+      const Range* ranges, int n, uint64_t* sizes, bool include_memtables,
+      bool include_files, double files_size_error_margin) {
+    return GetApproximateSizesWithOptions(
+        DefaultColumnFamily(), ranges, n, sizes, include_memtables,
+        include_files, files_size_error_margin);
+  }
+
   // The method is similar to GetApproximateSizes, except it
   // returns approximate number of records in memtables.
   virtual void GetApproximateMemTableStats(ColumnFamilyHandle* column_family,
@@ -1772,6 +1785,17 @@ inline Status DB::GetApproximateSizes(ColumnFamilyHandle* column_family,
   options.include_files =
       ((include_flags & SizeApproximationFlags::INCLUDE_FILES) !=
        SizeApproximationFlags::NONE);
+  return GetApproximateSizes(options, column_family, ranges, n, sizes);
+}
+
+inline Status DB::GetApproximateSizesWithOptions(
+    ColumnFamilyHandle* column_family, const Range* ranges, int n,
+    uint64_t* sizes, bool include_memtables, bool include_files,
+    double files_size_error_margin) {
+  SizeApproximationOptions options;
+  options.include_memtables = include_memtables;
+  options.include_files = include_files;
+  options.files_size_error_margin = files_size_error_margin;
   return GetApproximateSizes(options, column_family, ranges, n, sizes);
 }
 
