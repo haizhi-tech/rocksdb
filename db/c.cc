@@ -27,6 +27,7 @@
 #include "rocksdb/experimental.h"
 #include "rocksdb/filter_policy.h"
 #include "rocksdb/iterator.h"
+#include "rocksdb/listener.h"
 #include "rocksdb/memtablerep.h"
 #include "rocksdb/merge_operator.h"
 #include "rocksdb/metadata.h"
@@ -77,10 +78,12 @@ using ROCKSDB_NAMESPACE::DBOptions;
 using ROCKSDB_NAMESPACE::DbPath;
 using ROCKSDB_NAMESPACE::Env;
 using ROCKSDB_NAMESPACE::EnvOptions;
+using ROCKSDB_NAMESPACE::EventListener;
 using ROCKSDB_NAMESPACE::ExportImportFilesMetaData;
 using ROCKSDB_NAMESPACE::FileLock;
 using ROCKSDB_NAMESPACE::FileType;
 using ROCKSDB_NAMESPACE::FilterPolicy;
+using ROCKSDB_NAMESPACE::FlushJobInfo;
 using ROCKSDB_NAMESPACE::FlushOptions;
 using ROCKSDB_NAMESPACE::ImportColumnFamilyOptions;
 using ROCKSDB_NAMESPACE::InfoLogLevel;
@@ -280,6 +283,28 @@ struct rocksdb_optimistictransaction_options_t {
 
 struct rocksdb_compactionfiltercontext_t {
   CompactionFilter::Context rep;
+};
+
+struct rocksdb_flush_job_info_t {
+  FlushJobInfo rep;
+};
+
+struct rocksdb_event_listener_t : public EventListener {
+  void* state_;
+  void (*on_flush_begin)(void*, rocksdb_flush_job_info_t*);
+  void (*on_flush_completed)(void*, rocksdb_flush_job_info_t*);
+
+  void OnFlushBegin(DB*, const FlushJobInfo& info) override {
+    rocksdb_flush_job_info_t info_t;
+    info_t.rep = info;
+    on_flush_begin(state_, &info_t);
+  }
+
+  void OnFlushCompleted(DB*, const FlushJobInfo& info) override {
+    rocksdb_flush_job_info_t info_t;
+    info_t.rep = info;
+    on_flush_completed(state_, &info_t);
+  }
 };
 
 struct rocksdb_compactionfilter_t : public CompactionFilter {
@@ -6625,6 +6650,36 @@ void rocksdb_disable_manual_compaction(rocksdb_t* db) {
 
 void rocksdb_enable_manual_compaction(rocksdb_t* db) {
   db->rep->EnableManualCompaction();
+}
+
+char* rocksdb_flush_job_info_cf_name(rocksdb_flush_job_info_t* info, size_t* name_len) {
+  auto name = info->rep.cf_name;
+  *name_len = name.size();
+  return CopyString(name);
+}
+
+uint64_t rocksdb_flush_job_info_largest_seqno(rocksdb_flush_job_info_t* info) {
+  return info->rep.largest_seqno;
+}
+
+uint64_t rocksdb_flush_job_info_smallest_seqno(rocksdb_flush_job_info_t* info) {
+  return info->rep.smallest_seqno;
+}
+
+rocksdb_event_listener_t* rocksdb_event_listener_create(
+    void* state, void (*on_flush_begin)(void*, rocksdb_flush_job_info_t*),
+    void (*on_flush_completed)(void*, rocksdb_flush_job_info_t*)) {
+  rocksdb_event_listener_t* result = new rocksdb_event_listener_t;
+  result->state_ = state;
+  result->on_flush_begin = on_flush_begin;
+  result->on_flush_completed = on_flush_completed;
+  return result;
+}
+
+void rocksdb_options_add_event_listener(rocksdb_options_t* opt,
+                                        rocksdb_event_listener_t* listener) {
+  opt->rep.listeners.push_back(
+      std::shared_ptr<rocksdb_event_listener_t>(listener));
 }
 
 }  // end extern "C"

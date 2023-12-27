@@ -137,6 +137,8 @@ typedef struct rocksdb_memory_consumers_t rocksdb_memory_consumers_t;
 typedef struct rocksdb_memory_usage_t rocksdb_memory_usage_t;
 typedef struct rocksdb_export_import_files_metadata_t rocksdb_export_import_files_metadata_t;
 typedef struct rocksdb_live_file_metadata rocksdb_live_file_metadata;
+typedef struct rocksdb_flush_job_info_t rocksdb_flush_job_info_t;
+typedef struct rocksdb_event_listener_t rocksdb_event_listener_t;
 
 /* DB operations */
 
@@ -1288,6 +1290,19 @@ rocksdb_options_set_skip_checking_sst_file_sizes_on_db_open(
 extern ROCKSDB_LIBRARY_API unsigned char
 rocksdb_options_get_skip_checking_sst_file_sizes_on_db_open(
     rocksdb_options_t* opt);
+
+extern ROCKSDB_LIBRARY_API char* rocksdb_flush_job_info_cf_name(
+    rocksdb_flush_job_info_t* info, size_t* name_len);
+extern ROCKSDB_LIBRARY_API uint64_t
+rocksdb_flush_job_info_largest_seqno(rocksdb_flush_job_info_t* info);
+extern ROCKSDB_LIBRARY_API uint64_t
+rocksdb_flush_job_info_smallest_seqno(rocksdb_flush_job_info_t* info);
+extern ROCKSDB_LIBRARY_API rocksdb_event_listener_t*
+rocksdb_event_listener_create(
+    void* state, void (*on_flush_begin)(void*, rocksdb_flush_job_info_t*),
+    void (*on_flush_completed)(void*, rocksdb_flush_job_info_t*));
+extern ROCKSDB_LIBRARY_API void rocksdb_options_add_event_listener(
+    rocksdb_options_t* opt, rocksdb_event_listener_t* listener);
 
 /* Blob Options Settings */
 extern ROCKSDB_LIBRARY_API void rocksdb_options_set_enable_blob_files(
