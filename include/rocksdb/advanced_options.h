@@ -852,8 +852,28 @@ struct AdvancedColumnFamilyOptions {
   // Dynamically changeable through SetOptions() API
   uint64_t ttl = 0xfffffffffffffffe;
 
-  // Files older than this value will be picked up for compaction, and
-  // re-written to the same level as they were before.
+  // This option has different meanings for different compaction styles:
+  //
+  // Leveled: files older than `periodic_compaction_seconds` will be picked up
+  //    for compaction and will be re-written to the same level as they were
+  //    before if level_compaction_dynamic_level_bytes is disabled. Otherwise,
+  //    it will rewrite files to the next level except for the last level files
+  //    to the same level.
+  //
+  // FIFO: not supported. Setting this option has no effect for FIFO compaction.
+  //
+  // Universal: when there are files older than `periodic_compaction_seconds`,
+  //    rocksdb will try to do as large a compaction as possible including the
+  //    last level. Such compaction is only skipped if only last level is to
+  //    be compacted and no file in last level is older than
+  //    `periodic_compaction_seconds`. See more in
+  //    UniversalCompactionBuilder::PickPeriodicCompaction().
+  //    For backward compatibility, the effective value of this option takes
+  //    into account the value of option `ttl`. The logic is as follows:
+  //    - both options are set to 30 days if they have the default value.
+  //    - if both options are zero, zero is picked. Otherwise, we take the min
+  //    value among non-zero options values (i.e. takes the stricter limit).
+  //
   // One main use of the feature is to make sure a file goes through compaction
   // filters periodically. Users can also use the feature to clear up SST
   // files using old format.
