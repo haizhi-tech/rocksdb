@@ -6682,6 +6682,11 @@ void rocksdb_options_add_event_listener(rocksdb_options_t* opt,
       std::shared_ptr<rocksdb_event_listener_t>(listener));
 }
 
+void rocksdb_options_set_periodic_compaction_seconds(rocksdb_options_t* opt,
+    uint64_t n) {
+  opt->rep.periodic_compaction_seconds = n;
+}
+
 }  // end extern "C"
 
 #endif  // !ROCKSDB_LITE

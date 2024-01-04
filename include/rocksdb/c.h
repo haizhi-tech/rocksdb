@@ -2845,6 +2845,9 @@ extern ROCKSDB_LIBRARY_API void rocksdb_disable_manual_compaction(
 
 extern ROCKSDB_LIBRARY_API void rocksdb_enable_manual_compaction(rocksdb_t* db);
 
+extern ROCKSDB_LIBRARY_API void
+    rocksdb_options_set_periodic_compaction_seconds(rocksdb_options_t*, uint64_t);
+
 #ifdef __cplusplus
 } /* end extern "C" */
 #endif
