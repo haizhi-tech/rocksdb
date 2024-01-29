@@ -145,6 +145,7 @@ typedef struct rocksdb_export_import_files_metadata_t rocksdb_export_import_file
 typedef struct rocksdb_live_file_metadata rocksdb_live_file_metadata;
 typedef struct rocksdb_flush_job_info_t rocksdb_flush_job_info_t;
 typedef struct rocksdb_event_listener_t rocksdb_event_listener_t;
+typedef struct rocksdb_sstfilemanager_t rocksdb_sstfilemanager_t;
 
 /* DB operations */
 
@@ -1833,6 +1834,9 @@ extern ROCKSDB_LIBRARY_API void rocksdb_options_set_compaction_pri(
 extern ROCKSDB_LIBRARY_API int rocksdb_options_get_compaction_pri(
     rocksdb_options_t*);
 
+extern ROCKSDB_LIBRARY_API void rocksdb_options_set_sstfilemanager(
+    rocksdb_options_t* opt, rocksdb_sstfilemanager_t* sst_file_manager);
+
 /* RateLimiter */
 extern ROCKSDB_LIBRARY_API rocksdb_ratelimiter_t* rocksdb_ratelimiter_create(
     int64_t rate_bytes_per_sec, int64_t refill_period_us, int32_t fairness);
@@ -1846,6 +1850,12 @@ rocksdb_ratelimiter_create_with_mode(int64_t rate_bytes_per_sec,
                                      int mode, bool auto_tuned);
 extern ROCKSDB_LIBRARY_API void rocksdb_ratelimiter_destroy(
     rocksdb_ratelimiter_t*);
+
+/* SstFileManager */
+extern ROCKSDB_LIBRARY_API rocksdb_sstfilemanager_t*
+    rocksdb_sstfilemanager_create();
+extern ROCKSDB_LIBRARY_API void rocksdb_sstfilemanager_destroy(
+    rocksdb_sstfilemanager_t* sst_file_manager);
 
 /* PerfContext */
 enum {
