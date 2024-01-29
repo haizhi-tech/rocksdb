@@ -33,6 +33,7 @@
 #include "rocksdb/perf_context.h"
 #include "rocksdb/rate_limiter.h"
 #include "rocksdb/slice_transform.h"
+#include "rocksdb/sst_file_manager.h"
 #include "rocksdb/statistics.h"
 #include "rocksdb/status.h"
 #include "rocksdb/table.h"
@@ -101,6 +102,7 @@ using ROCKSDB_NAMESPACE::NewCompactOnDeletionCollectorFactory;
 using ROCKSDB_NAMESPACE::NewGenericRateLimiter;
 using ROCKSDB_NAMESPACE::NewLRUCache;
 using ROCKSDB_NAMESPACE::NewRibbonFilterPolicy;
+using ROCKSDB_NAMESPACE::NewSstFileManager;
 using ROCKSDB_NAMESPACE::OptimisticTransactionDB;
 using ROCKSDB_NAMESPACE::OptimisticTransactionOptions;
 using ROCKSDB_NAMESPACE::Options;
@@ -118,6 +120,7 @@ using ROCKSDB_NAMESPACE::Slice;
 using ROCKSDB_NAMESPACE::SliceParts;
 using ROCKSDB_NAMESPACE::SliceTransform;
 using ROCKSDB_NAMESPACE::Snapshot;
+using ROCKSDB_NAMESPACE::SstFileManager;
 using ROCKSDB_NAMESPACE::SstFileMetaData;
 using ROCKSDB_NAMESPACE::SstFileWriter;
 using ROCKSDB_NAMESPACE::Status;
@@ -283,13 +286,14 @@ struct rocksdb_optimistictransactiondb_t {
 struct rocksdb_optimistictransaction_options_t {
   OptimisticTransactionOptions rep;
 };
-
 struct rocksdb_compactionfiltercontext_t {
   CompactionFilter::Context rep;
 };
-
 struct rocksdb_flush_job_info_t {
   FlushJobInfo rep;
+};
+struct rocksdb_sstfilemanager_t {
+  std::shared_ptr<SstFileManager> rep;
 };
 
 struct rocksdb_event_listener_t : public EventListener {
@@ -6785,6 +6789,23 @@ void rocksdb_options_add_event_listener(rocksdb_options_t* opt,
 void rocksdb_options_set_periodic_compaction_seconds(rocksdb_options_t* opt,
     uint64_t n) {
   opt->rep.periodic_compaction_seconds = n;
+}
+
+rocksdb_sstfilemanager_t* rocksdb_sstfilemanager_create() {
+  rocksdb_sstfilemanager_t* sst_file_manager = new rocksdb_sstfilemanager_t;
+  sst_file_manager->rep.reset(NewSstFileManager(Env::Default(), nullptr, ""));
+  return sst_file_manager;
+}
+
+void rocksdb_sstfilemanager_destroy(rocksdb_sstfilemanager_t* sst_file_manager) {
+  delete sst_file_manager;
+}
+
+void rocksdb_options_set_sstfilemanager(rocksdb_options_t* opt,
+                                        rocksdb_sstfilemanager_t* sst_file_manager) {
+  if (sst_file_manager) {
+    opt->rep.sst_file_manager = sst_file_manager->rep;
+  }
 }
 
 }  // end extern "C"
