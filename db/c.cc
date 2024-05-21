@@ -2122,6 +2122,10 @@ unsigned char rocksdb_iter_valid(const rocksdb_iterator_t* iter) {
   return iter->rep->Valid();
 }
 
+void rocksdb_iter_refresh(rocksdb_iterator_t* iter) {
+  iter->rep->Refresh();
+}
+
 void rocksdb_iter_seek_to_first(rocksdb_iterator_t* iter) {
   iter->rep->SeekToFirst();
 }

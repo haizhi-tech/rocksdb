@@ -738,6 +738,7 @@ extern ROCKSDB_LIBRARY_API void rocksdb_repair_db(
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_destroy(rocksdb_iterator_t*);
 extern ROCKSDB_LIBRARY_API unsigned char rocksdb_iter_valid(
     const rocksdb_iterator_t*);
+extern ROCKSDB_LIBRARY_API void rocksdb_iter_refresh(rocksdb_iterator_t* iter);
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_seek_to_first(rocksdb_iterator_t*);
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_seek_to_last(rocksdb_iterator_t*);
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_seek(rocksdb_iterator_t*,
