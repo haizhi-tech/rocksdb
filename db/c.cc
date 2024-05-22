@@ -981,8 +981,14 @@ const char* rocksdb_marshal_export_import_files_metadata(
       json.append(std::to_string(file.oldest_ancester_time));
       json.append(",\"file_creation_time\":");
       json.append(std::to_string(file.file_creation_time));
+      json.append(",\"epoch_number\":");
+      json.append(std::to_string(file.epoch_number));
       json.append(",\"file_checksum\":");
       json.append(format(file.file_checksum));
+      json.append(",\"hex_smallest\":");
+      json.append(format(string_to_hex(file.smallest)));
+      json.append(",\"hex_largest\":");
+      json.append(format(string_to_hex(file.largest)));
       json.append(",\"file_checksum_func_name\":");
       json.append(format(file.file_checksum_func_name));
       json.append("}");
