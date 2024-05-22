@@ -1026,7 +1026,8 @@ rocksdb_live_file_metadata* rocksdb_new_live_file_metadata(
     uint64_t num_entries, uint64_t num_deletions, uint8_t temperature,
     uint64_t oldest_blob_file_number, uint64_t oldest_ancester_time,
     uint64_t file_creation_time, const char* file_checksum,
-    const char* file_checksum_func_name, char** errptr) {
+    const char* file_checksum_func_name, uint64_t epoch_number, 
+    const char* hex_smallest, const char* hex_largest, char** errptr) {
   auto hex_to_string = [](std::string hex) -> std::string {
     const signed char hex_values[256] = {
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
@@ -1083,6 +1084,9 @@ rocksdb_live_file_metadata* rocksdb_new_live_file_metadata(
   metadata->file_creation_time = file_creation_time;
   metadata->file_checksum = std::string(file_checksum);
   metadata->file_checksum_func_name = std::string(file_checksum_func_name);
+  metadata->epoch_number = epoch_number;
+  metadata->smallest = hex_to_string(std::string(hex_smallest));
+  metadata->largest = hex_to_string(std::string(hex_largest));
   rocksdb_live_file_metadata* result = new rocksdb_live_file_metadata;
   result->rep = metadata;
   return result;

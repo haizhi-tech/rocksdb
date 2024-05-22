@@ -447,7 +447,8 @@ rocksdb_new_live_file_metadata(const char* column_family_name, int level,
                                uint64_t num_entries, uint64_t num_deletions, 
                                uint8_t temperature, uint64_t oldest_blob_file_number,
                                uint64_t oldest_ancester_time, uint64_t file_creation_time,
-                               const char* file_checksum, const char* file_checksum_func_name, 
+                               const char* file_checksum, const char* file_checksum_func_name,
+                               uint64_t epoch_number, const char* hex_smallest, const char* hex_largest,
                                char** errptr);
 
 extern ROCKSDB_LIBRARY_API rocksdb_column_family_handle_t*
