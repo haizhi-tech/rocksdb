@@ -451,18 +451,18 @@ rocksdb_new_export_import_files_metadata(const char* db_comparator_name,
                                          int file_size, char** errptr);
 
 extern ROCKSDB_LIBRARY_API rocksdb_live_file_metadata*
-rocksdb_new_live_file_metadata(const char* column_family_name, int level,
-                               const char* relative_filename, const char* name,
-                               uint64_t file_number, int file_type,
-                               const char* directory, const char* db_path, int32_t size,
-                               uint64_t smallest_seqno, uint64_t largest_seqno,
-                               const char* hex_smallestkey, const char* hex_largestkey,
-                               uint64_t num_reads_sampled, int32_t being_compacted,
-                               uint64_t num_entries, uint64_t num_deletions,
-                               uint8_t temperature, uint64_t oldest_blob_file_number,
-                               uint64_t oldest_ancester_time, uint64_t file_creation_time,
-                               const char* file_checksum, const char* file_checksum_func_name,
-                               char** errptr);
+rocksdb_new_live_file_metadata(
+    const char* column_family_name, int level, const char* relative_filename,
+    const char* name, uint64_t file_number, int file_type,
+    const char* directory, const char* db_path, int32_t size,
+    uint64_t smallest_seqno, uint64_t largest_seqno,
+    const char* hex_smallestkey, const char* hex_largestkey,
+    uint64_t num_reads_sampled, int32_t being_compacted, uint64_t num_entries,
+    uint64_t num_deletions, uint8_t temperature,
+    uint64_t oldest_blob_file_number, uint64_t oldest_ancester_time,
+    uint64_t file_creation_time, const char* file_checksum,
+    const char* file_checksum_func_name, uint64_t epoch_number,
+    const char* hex_smallest, const char* hex_largest, char** errptr);
 
 extern ROCKSDB_LIBRARY_API rocksdb_column_family_handle_t*
 rocksdb_create_column_family_with_ttl(
