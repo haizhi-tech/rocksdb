@@ -137,7 +137,8 @@ typedef struct rocksdb_wal_iterator_t rocksdb_wal_iterator_t;
 typedef struct rocksdb_wal_readoptions_t rocksdb_wal_readoptions_t;
 typedef struct rocksdb_memory_consumers_t rocksdb_memory_consumers_t;
 typedef struct rocksdb_memory_usage_t rocksdb_memory_usage_t;
-typedef struct rocksdb_export_import_files_metadata_t rocksdb_export_import_files_metadata_t;
+typedef struct rocksdb_export_import_files_metadata_t
+    rocksdb_export_import_files_metadata_t;
 typedef struct rocksdb_live_file_metadata rocksdb_live_file_metadata;
 typedef struct rocksdb_flush_job_info_t rocksdb_flush_job_info_t;
 typedef struct rocksdb_event_listener_t rocksdb_event_listener_t;
@@ -369,8 +370,8 @@ extern ROCKSDB_LIBRARY_API void rocksdb_checkpoint_create(
 
 extern ROCKSDB_LIBRARY_API rocksdb_export_import_files_metadata_t*
 rocksdb_column_family_export(rocksdb_checkpoint_t* checkpoint,
-    rocksdb_column_family_handle_t* handle,
-    const char* export_dir, char** errptr);
+                             rocksdb_column_family_handle_t* handle,
+                             const char* export_dir, char** errptr);
 
 extern ROCKSDB_LIBRARY_API void rocksdb_checkpoint_object_destroy(
     rocksdb_checkpoint_t* checkpoint);
@@ -428,7 +429,8 @@ rocksdb_create_column_family_with_import(
     const char* column_family_name,
     const rocksdb_export_import_files_metadata_t* metadata, char** errptr);
 
-extern ROCKSDB_LIBRARY_API const char* rocksdb_marshal_export_import_files_metadata(
+extern ROCKSDB_LIBRARY_API const char*
+rocksdb_marshal_export_import_files_metadata(
     rocksdb_export_import_files_metadata_t* metadata, char** errptr);
 
 extern ROCKSDB_LIBRARY_API rocksdb_export_import_files_metadata_t*
@@ -437,18 +439,18 @@ rocksdb_new_export_import_files_metadata(const char* db_comparator_name,
                                          int file_size, char** errptr);
 
 extern ROCKSDB_LIBRARY_API rocksdb_live_file_metadata*
-rocksdb_new_live_file_metadata(const char* column_family_name, int level, 
-                               const char* relative_filename, const char* name, 
-                               uint64_t file_number, int file_type,
-                               const char* directory, const char* db_path, int32_t size,
-                               uint64_t smallest_seqno, uint64_t largest_seqno, 
-                               const char* hex_smallestkey, const char* hex_largestkey, 
-                               uint64_t num_reads_sampled, int32_t being_compacted,
-                               uint64_t num_entries, uint64_t num_deletions, 
-                               uint8_t temperature, uint64_t oldest_blob_file_number,
-                               uint64_t oldest_ancester_time, uint64_t file_creation_time,
-                               const char* file_checksum, const char* file_checksum_func_name, 
-                               char** errptr);
+rocksdb_new_live_file_metadata(
+    const char* column_family_name, int level, const char* relative_filename,
+    const char* name, uint64_t file_number, int file_type,
+    const char* directory, const char* db_path, int32_t size,
+    uint64_t smallest_seqno, uint64_t largest_seqno,
+    const char* hex_smallestkey, const char* hex_largestkey,
+    uint64_t num_reads_sampled, int32_t being_compacted, uint64_t num_entries,
+    uint64_t num_deletions, uint8_t temperature,
+    uint64_t oldest_blob_file_number, uint64_t oldest_ancester_time,
+    uint64_t file_creation_time, const char* file_checksum,
+    const char* file_checksum_func_name, uint64_t epoch_number,
+    const char* hex_smallest, const char* hex_largest, char** errptr);
 
 extern ROCKSDB_LIBRARY_API rocksdb_column_family_handle_t*
 rocksdb_create_column_family_with_ttl(
@@ -1696,7 +1698,7 @@ extern ROCKSDB_LIBRARY_API void rocksdb_ratelimiter_destroy(
 
 /* SstFileManager */
 extern ROCKSDB_LIBRARY_API rocksdb_sstfilemanager_t*
-    rocksdb_sstfilemanager_create();
+rocksdb_sstfilemanager_create();
 extern ROCKSDB_LIBRARY_API void rocksdb_sstfilemanager_destroy(
     rocksdb_sstfilemanager_t* sst_file_manager);
 
@@ -2303,7 +2305,8 @@ extern ROCKSDB_LIBRARY_API rocksdb_fifo_compaction_options_t*
 rocksdb_fifo_compaction_options_create(void);
 extern ROCKSDB_LIBRARY_API void
 rocksdb_fifo_compaction_options_set_allow_compaction(
-    rocksdb_fifo_compaction_options_t* fifo_opts, unsigned char allow_compaction);
+    rocksdb_fifo_compaction_options_t* fifo_opts,
+    unsigned char allow_compaction);
 extern ROCKSDB_LIBRARY_API unsigned char
 rocksdb_fifo_compaction_options_get_allow_compaction(
     rocksdb_fifo_compaction_options_t* fifo_opts);
@@ -2907,8 +2910,8 @@ extern ROCKSDB_LIBRARY_API void rocksdb_disable_manual_compaction(
 
 extern ROCKSDB_LIBRARY_API void rocksdb_enable_manual_compaction(rocksdb_t* db);
 
-extern ROCKSDB_LIBRARY_API void
-    rocksdb_options_set_periodic_compaction_seconds(rocksdb_options_t*, uint64_t);
+extern ROCKSDB_LIBRARY_API void rocksdb_options_set_periodic_compaction_seconds(
+    rocksdb_options_t*, uint64_t);
 
 #ifdef __cplusplus
 } /* end extern "C" */
