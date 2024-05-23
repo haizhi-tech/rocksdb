@@ -373,8 +373,8 @@ extern ROCKSDB_LIBRARY_API void rocksdb_checkpoint_create(
 
 extern ROCKSDB_LIBRARY_API rocksdb_export_import_files_metadata_t*
 rocksdb_column_family_export(rocksdb_checkpoint_t* checkpoint,
-    rocksdb_column_family_handle_t* handle,
-    const char* export_dir, char** errptr);
+                             rocksdb_column_family_handle_t* handle,
+                             const char* export_dir, char** errptr);
 
 extern ROCKSDB_LIBRARY_API void rocksdb_checkpoint_object_destroy(
     rocksdb_checkpoint_t* checkpoint);
@@ -442,7 +442,8 @@ rocksdb_create_column_family_with_import(
     const char* column_family_name,
     const rocksdb_export_import_files_metadata_t* metadata, char** errptr);
 
-extern ROCKSDB_LIBRARY_API const char* rocksdb_marshal_export_import_files_metadata(
+extern ROCKSDB_LIBRARY_API const char*
+rocksdb_marshal_export_import_files_metadata(
     rocksdb_export_import_files_metadata_t* metadata, char** errptr);
 
 extern ROCKSDB_LIBRARY_API rocksdb_export_import_files_metadata_t*
@@ -1852,7 +1853,7 @@ extern ROCKSDB_LIBRARY_API void rocksdb_ratelimiter_destroy(
 
 /* SstFileManager */
 extern ROCKSDB_LIBRARY_API rocksdb_sstfilemanager_t*
-    rocksdb_sstfilemanager_create();
+rocksdb_sstfilemanager_create();
 extern ROCKSDB_LIBRARY_API void rocksdb_sstfilemanager_destroy(
     rocksdb_sstfilemanager_t* sst_file_manager);
 

@@ -67,10 +67,10 @@ using ROCKSDB_NAMESPACE::ColumnFamilyDescriptor;
 using ROCKSDB_NAMESPACE::ColumnFamilyHandle;
 using ROCKSDB_NAMESPACE::ColumnFamilyMetaData;
 using ROCKSDB_NAMESPACE::ColumnFamilyOptions;
+using ROCKSDB_NAMESPACE::CompactRangeOptions;
 using ROCKSDB_NAMESPACE::CompactionFilter;
 using ROCKSDB_NAMESPACE::CompactionFilterFactory;
 using ROCKSDB_NAMESPACE::CompactionOptionsFIFO;
-using ROCKSDB_NAMESPACE::CompactRangeOptions;
 using ROCKSDB_NAMESPACE::Comparator;
 using ROCKSDB_NAMESPACE::CompressionType;
 using ROCKSDB_NAMESPACE::ConfigOptions;
@@ -93,10 +93,10 @@ using ROCKSDB_NAMESPACE::ImportColumnFamilyOptions;
 using ROCKSDB_NAMESPACE::InfoLogLevel;
 using ROCKSDB_NAMESPACE::IngestExternalFileOptions;
 using ROCKSDB_NAMESPACE::Iterator;
+using ROCKSDB_NAMESPACE::LRUCacheOptions;
 using ROCKSDB_NAMESPACE::LevelMetaData;
 using ROCKSDB_NAMESPACE::LiveFileMetaData;
 using ROCKSDB_NAMESPACE::Logger;
-using ROCKSDB_NAMESPACE::LRUCacheOptions;
 using ROCKSDB_NAMESPACE::MemoryAllocator;
 using ROCKSDB_NAMESPACE::MemoryUtil;
 using ROCKSDB_NAMESPACE::MergeOperator;
@@ -936,9 +936,13 @@ void rocksdb_checkpoint_create(rocksdb_checkpoint_t* checkpoint,
                         std::string(checkpoint_dir), log_size_for_flush));
 }
 
-struct rocksdb_export_import_files_metadata_t { ExportImportFilesMetaData* rep; };
+struct rocksdb_export_import_files_metadata_t {
+  ExportImportFilesMetaData* rep;
+};
 
-struct rocksdb_live_file_metadata { LiveFileMetaData* rep; };
+struct rocksdb_live_file_metadata {
+  LiveFileMetaData* rep;
+};
 
 rocksdb_export_import_files_metadata_t* rocksdb_column_family_export(
     rocksdb_checkpoint_t* checkpoint, rocksdb_column_family_handle_t* handle,
@@ -975,10 +979,9 @@ const char* rocksdb_marshal_export_import_files_metadata(
     }
 
     result.reserve(s.length() * 2);
-    for (unsigned char c : s)
-    {
-        result.push_back(hex_digits[c >> 4]);
-        result.push_back(hex_digits[c & 15]);
+    for (unsigned char c : s) {
+      result.push_back(hex_digits[c >> 4]);
+      result.push_back(hex_digits[c & 15]);
     }
     return result;
   };
@@ -1029,7 +1032,7 @@ const char* rocksdb_marshal_export_import_files_metadata(
       json.append(",\"num_deletions\":");
       json.append(std::to_string(file.num_deletions));
       json.append(",\"temperature\":"),
-      json.append(std::to_string(uint8_t(file.temperature)));
+          json.append(std::to_string(uint8_t(file.temperature)));
       json.append(",\"oldest_blob_file_number\":");
       json.append(std::to_string(file.oldest_blob_file_number));
       json.append(",\"oldest_ancester_time\":");
@@ -1076,41 +1079,41 @@ rocksdb_live_file_metadata* rocksdb_new_live_file_metadata(
     const char* column_family_name, int level, const char* relative_filename,
     const char* name, uint64_t file_number, int file_type,
     const char* directory, const char* db_path, int32_t size,
-    uint64_t smallest_seqno, uint64_t largest_seqno, const char* hex_smallestkey,
-    const char* hex_largestkey, uint64_t num_reads_sampled, int32_t being_compacted,
-    uint64_t num_entries, uint64_t num_deletions, uint8_t temperature,
+    uint64_t smallest_seqno, uint64_t largest_seqno,
+    const char* hex_smallestkey, const char* hex_largestkey,
+    uint64_t num_reads_sampled, int32_t being_compacted, uint64_t num_entries,
+    uint64_t num_deletions, uint8_t temperature,
     uint64_t oldest_blob_file_number, uint64_t oldest_ancester_time,
     uint64_t file_creation_time, const char* file_checksum,
-    const char* file_checksum_func_name, uint64_t epoch_number, 
+    const char* file_checksum_func_name, uint64_t epoch_number,
     const char* hex_smallest, const char* hex_largest, char** errptr) {
   auto hex_to_string = [](std::string hex) -> std::string {
     const signed char hex_values[256] = {
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-         0,  1,  2,  3,  4,  5,  6,  7,  8,  9, -1, -1, -1, -1, -1, -1,
-        -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0,  1,  2,  3,  4,  5,
+        6,  7,  8,  9,  -1, -1, -1, -1, -1, -1, -1, 10, 11, 12, 13, 14, 15, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1,
     };
 
     const auto len = hex.length();
 
     std::string result;
     result.reserve(len / 2);
-    for (auto it = hex.begin(); it != hex.end(); ) {
-        int hi = hex_values[int(*it++)];
-        int lo = hex_values[int(*it++)];
-        result.push_back(hi << 4 | lo);
+    for (auto it = hex.begin(); it != hex.end();) {
+      int hi = hex_values[int(*it++)];
+      int lo = hex_values[int(*it++)];
+      result.push_back(hi << 4 | lo);
     }
     return result;
   };
@@ -2271,9 +2274,7 @@ unsigned char rocksdb_iter_valid(const rocksdb_iterator_t* iter) {
   return iter->rep->Valid();
 }
 
-void rocksdb_iter_refresh(rocksdb_iterator_t* iter) {
-  iter->rep->Refresh();
-}
+void rocksdb_iter_refresh(rocksdb_iterator_t* iter) { iter->rep->Refresh(); }
 
 void rocksdb_iter_seek_to_first(rocksdb_iterator_t* iter) {
   iter->rep->SeekToFirst();
@@ -7455,12 +7456,13 @@ rocksdb_sstfilemanager_t* rocksdb_sstfilemanager_create() {
   return sst_file_manager;
 }
 
-void rocksdb_sstfilemanager_destroy(rocksdb_sstfilemanager_t* sst_file_manager) {
+void rocksdb_sstfilemanager_destroy(
+    rocksdb_sstfilemanager_t* sst_file_manager) {
   delete sst_file_manager;
 }
 
-void rocksdb_options_set_sstfilemanager(rocksdb_options_t* opt,
-                                        rocksdb_sstfilemanager_t* sst_file_manager) {
+void rocksdb_options_set_sstfilemanager(
+    rocksdb_options_t* opt, rocksdb_sstfilemanager_t* sst_file_manager) {
   if (sst_file_manager) {
     opt->rep.sst_file_manager = sst_file_manager->rep;
   }
