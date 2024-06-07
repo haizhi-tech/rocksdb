@@ -1088,9 +1088,12 @@ rocksdb_live_file_metadata* rocksdb_new_live_file_metadata(
   metadata->file_creation_time = file_creation_time;
   metadata->file_checksum = std::string(file_checksum);
   metadata->file_checksum_func_name = std::string(file_checksum_func_name);
-  metadata->epoch_number = epoch_number;
-  metadata->smallest = hex_to_string(std::string(hex_smallest));
-  metadata->largest = hex_to_string(std::string(hex_largest));
+  if ((epoch_number != 0) || (std::string(hex_smallest) != "") ||
+      (std::string(hex_largest) != "")) {
+    metadata->epoch_number = epoch_number;
+    metadata->smallest = hex_to_string(std::string(hex_smallest));
+    metadata->largest = hex_to_string(std::string(hex_largest));
+  }
   rocksdb_live_file_metadata* result = new rocksdb_live_file_metadata;
   result->rep = metadata;
   return result;
