@@ -2309,10 +2309,6 @@ void rocksdb_iter_get_error(const rocksdb_iterator_t* iter, char** errptr) {
   SaveError(errptr, iter->rep->status());
 }
 
-void rocksdb_iter_refresh(const rocksdb_iterator_t* iter, char** errptr) {
-  SaveError(errptr, iter->rep->Refresh());
-}
-
 rocksdb_writebatch_t* rocksdb_writebatch_create() {
   return new rocksdb_writebatch_t;
 }
