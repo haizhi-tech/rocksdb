@@ -20,8 +20,8 @@
 
 #include <cerrno>
 #include <cstddef>
-#include <vector>
 #include <deque>
+#include <vector>
 
 #include "memory/allocator.h"
 #include "port/mmap.h"
