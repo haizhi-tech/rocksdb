@@ -38,6 +38,8 @@ class SstFileDumper {
   Status DumpTable(const std::string& out_filename);
   Status getStatus() { return init_result_; }
 
+  Status GetDataBlockHandles(std::vector<BlockHandle>& block_handles);
+
   Status ShowAllCompressionSizes(
       size_t block_size,
       const std::vector<std::pair<CompressionType, const char*>>&

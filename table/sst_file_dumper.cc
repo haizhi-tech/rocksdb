@@ -30,6 +30,7 @@
 #include "table/block_based/block.h"
 #include "table/block_based/block_based_table_builder.h"
 #include "table/block_based/block_based_table_factory.h"
+#include "table/block_based/block_based_table_reader.h"
 #include "table/block_based/block_builder.h"
 #include "table/format.h"
 #include "table/meta_blocks.h"
@@ -191,6 +192,47 @@ Status SstFileDumper::VerifyChecksum() {
   // We could pass specific readahead setting into read options if needed.
   return table_reader_->VerifyChecksum(read_options_,
                                        TableReaderCaller::kSSTDumpTool);
+}
+
+Status SstFileDumper::GetDataBlockHandles(
+    std::vector<BlockHandle>& block_handles) {
+  // Check if the factory is BlockBasedTableFactory by name
+  auto* factory = options_.table_factory.get();
+  if (strcmp(factory->Name(), "BlockBasedTable") != 0) {
+    return Status::NotSupported("Not BlockBasedTable, got: " +
+                                std::string(factory->Name()));
+  }
+
+  auto* block_based_table =
+      reinterpret_cast<BlockBasedTable*>(table_reader_.get());
+  const auto* rep = block_based_table->get_rep();
+
+  if (!rep || !rep->index_reader) {
+    return Status::InvalidArgument("!rep || !rep->index_reader");
+  }
+
+  // Create index iterator using the public IndexReader interface
+  BlockCacheLookupContext lookup_context(TableReaderCaller::kSSTDumpTool);
+  std::unique_ptr<InternalIteratorBase<IndexValue>> index_iter(
+      rep->index_reader->NewIterator(read_options_, false, nullptr, nullptr,
+                                     &lookup_context));
+
+  if (!index_iter) {
+    return Status::IOError("Failed to create index iterator");
+  }
+
+  // Clear output vector
+  block_handles.clear();
+
+  // Iterate through index entries to extract block handles
+  index_iter->SeekToFirst();
+  while (index_iter->Valid()) {
+    IndexValue index_value = index_iter->value();
+    block_handles.push_back(index_value.handle);
+    index_iter->Next();
+  }
+
+  return index_iter->status();
 }
 
 Status SstFileDumper::DumpTable(const std::string& out_filename) {
