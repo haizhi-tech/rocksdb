@@ -17,7 +17,8 @@ if(WITH_TOOLS)
     dump/rocksdb_dump.cc
     dump/rocksdb_undump.cc
     sst_corrupt_tool.cc
-    cf_repairer.cc)
+    cf_repairer.cc
+    create_test_db.cc)
   foreach(src ${TOOLS})
     get_filename_component(exename ${src} NAME_WE)
     add_executable(${exename}${ARTIFACT_SUFFIX}
