@@ -132,7 +132,7 @@ CfRepairer::CfRepairer()
     REPAIRER_LOG(logger_, "  - %s", cf.name.c_str());
   }
 
-  bool not_found_cf;
+  bool not_found_cf = false;
   for (auto tgt_cf : target_cf_names_) {
     if (found_cf_names.find(tgt_cf) == found_cf_names.end()) {
       REPAIRER_LOG(logger_, "FATAL: target cf = %s not found!", tgt_cf.c_str());
