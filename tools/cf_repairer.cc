@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "file/filename.h"
+#include "rocksdb/advanced_options.h"
 #include "rocksdb/convenience.h"
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
@@ -21,6 +22,7 @@
 #include "rocksdb/types.h"
 #include "rocksdb/utilities/options_util.h"
 #include "rocksdb/version.h"
+#include "table/sst_file_dumper.h"
 #include "util/gflags_compat.h"
 #include "util/stderr_logger.h"
 #include "util/string_util.h"
@@ -44,11 +46,10 @@ class CfRepairer {
  private:
   void OpenDB(bool read_only);
   void CloseDB();
-
   void RunSstCheck();
+  rocksdb::Status CheckSst(const std::string&);
 
   rocksdb::DB* db_;
-
   rocksdb::ConfigOptions config_options_;
   rocksdb::Options options_;
   std::vector<rocksdb::ColumnFamilyDescriptor> column_families_;
@@ -180,18 +181,48 @@ void CfRepairer::CloseDB() {
 void CfRepairer::Run(int argc, char** argv) {
   std::string comm(FLAGS_command);
 
-  if (comm == "sst_check") {
+  if (comm == "cf_sst_check") {
     OpenDB(true);
     RunSstCheck();
-  } else if (comm == "restore_health_sst") {
+  } else if (comm == "cf_sst_archive") {
+  } else if (comm == "cf_restore_health_sst") {
   } else {
     fprintf(stdout,
             " Unknown command: %s, available:\n"
-            "  sst_check, restore_health_sst\n",
+            "  cf_sst_check, cf_sst_archive, cf_restore_health_sst\n",
             comm.c_str());
   }
 
   CloseDB();
+}
+
+rocksdb::Status CfRepairer::CheckSst(const std::string& file_path) {
+  bool verify_checksum = true;
+  size_t readahead_size = 2 * 1024 * 1024;
+  bool output_hex = false;
+  bool decode_blob_index = false;
+  bool silent = true;
+  bool print_kv = false;
+  uint64_t read_num = std::numeric_limits<uint64_t>::max();  // no limit readnum
+  std::string from_key;
+  std::string to_key;
+
+  rocksdb::Options opts;
+  rocksdb::SstFileDumper dumper(opts, file_path, rocksdb::Temperature::kUnknown,
+                                readahead_size, verify_checksum, output_hex,
+                                decode_blob_index, rocksdb::EnvOptions(),
+                                silent);
+
+  rocksdb::Status s;
+  s = dumper.VerifyChecksum();
+
+  // we don't need to actually read every kv out?
+  //
+  // if (s.ok()) {
+  //    s = dumper.ReadSequential(print_kv, read_num, false/*has-from*/,
+  //    from_key, false /*has-to*/, to_key);
+  // }
+  return s;
 }
 
 void CfRepairer::RunSstCheck() {
@@ -230,15 +261,22 @@ void CfRepairer::RunSstCheck() {
         }
       }
     }
-    fprintf(stdout, "[%s] [cf = %s] found %ld sst files \n", STAGE_2, cf.c_str(),
-            cf_sst_files.size());
-
-    for (const auto& f : cf_sst_files) {
-      REPAIRER_LOG(logger_, "[%s] [cf = %s] sst: %s", STAGE_2, cf.c_str(),
-                   f.c_str());
-    }
+    fprintf(stdout, "[%s] [cf = %s] found %ld sst files \n", STAGE_2,
+            cf.c_str(), cf_sst_files.size());
 
     // check sst
+    for (const auto& f : cf_sst_files) {
+      std::string sst_path = std::string(db_path_) + f;
+      rocksdb::Status s = CheckSst(sst_path);
+      if (s.ok()) {
+        REPAIRER_LOG(logger_, "[%s] [cf = %s] sst: %s check ok.", STAGE_2,
+                     cf.c_str(), sst_path.c_str());
+      } else {
+        REPAIRER_LOG(logger_, "[%s] [cf = %s] sst: %s check failed: %s.",
+                     STAGE_2, cf.c_str(), sst_path.c_str(),
+                     s.ToString().c_str());
+      }
+    }
   }
 }
 
