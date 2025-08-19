@@ -15,12 +15,15 @@
 #include <vector>
 
 #include "file/filename.h"
+#include "file/line_file_reader.h"
 #include "port/port_posix.h"
 #include "rocksdb/advanced_options.h"
 #include "rocksdb/convenience.h"
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
+#include "rocksdb/file_system.h"
 #include "rocksdb/options.h"
+#include "rocksdb/slice.h"
 #include "rocksdb/status.h"
 #include "rocksdb/types.h"
 #include "rocksdb/utilities/options_util.h"
@@ -40,6 +43,13 @@ DEFINE_string(
     "The names of cf to operate with, multiple cf shoule be comma-separated");
 DEFINE_string(command, "", "The command to run");
 DEFINE_uint32(workers, 4, "The number of worker to run repair process");
+DEFINE_string(corrupt_sst_path, "_corrupted_sst_list.txt",
+              "The file path to store corruption sst file names");
+DEFINE_bool(verbose, false, "Whether if print more informations");
+DEFINE_bool(
+    wal_recovery_skip_corrupted, false,
+    "Whether if set wal_recovery_mode to "
+    "WALRecoveryMode::kSkipAnyCorruptedRecords, in case of wal corruption");
 
 class CfRepairer {
  public:
@@ -48,6 +58,7 @@ class CfRepairer {
   void Run(int argc, char** argv);
 
  private:
+  void InitialTargetCf();
   void OpenDB(bool read_only);
   void CloseDB();
   void RunSstCheck();
@@ -57,6 +68,12 @@ class CfRepairer {
   void JoinSstCheckThreads(rocksdb::channel<std::string>*);
   void ReceiveCheckResults(std::string, rocksdb::channel<std::string>*);
   rocksdb::Status CheckSst(const std::string&);
+
+  void StoreCheckResults();
+
+  bool ParseLine(const std::string&, std::string*, std::vector<std::string>*);
+  void ReadCheckResults();
+  void ShowCorruptSsts();
 
   rocksdb::DB* db_;
   rocksdb::ConfigOptions config_options_;
@@ -72,7 +89,6 @@ class CfRepairer {
   std::shared_ptr<rocksdb::Logger> logger_;
 
   std::vector<std::unique_ptr<rocksdb::port::Thread>> threads_;
-  // std::vector<std::vector<std::string>> chunked_sst_lists_;
   std::unordered_map<std::string, std::vector<std::string>> corruption_ssts_;
 };
 
@@ -80,9 +96,12 @@ const char* USAGE =
     "USAGE: \n"
     "  cf_repairer -db_path <DBPATH> -cf_name <CFNAME> -command <COMMAND> "
     "[OPTIONS]...\n";
+
 const char* STAGE_0 = "LoadOptions";
 const char* STAGE_1 = "OpenDB";
 const char* STAGE_2 = "CheckSst";
+const char* STAGE_3 = "StoreCheckResult";
+const char* STAGE_4 = "ReadCheckResult";
 
 void ChunkSstFiles(const std::vector<std::string>& files,
                    std::vector<std::vector<std::string>>* results) {
@@ -110,7 +129,9 @@ void ChunkSstFiles(const std::vector<std::string>& files,
 CfRepairer::CfRepairer()
     : db_(nullptr), db_path_(FLAGS_db_path), cp_path_suffix_("_checkpoint") {
   logger_.reset(new rocksdb::StderrLogger());
+}
 
+void CfRepairer::InitialTargetCf() {
   if (db_path_.empty()) {
     fprintf(stdout, "[%s] dbpath not specified!\n", STAGE_0);
     Help();
@@ -163,7 +184,6 @@ CfRepairer::CfRepairer()
           STAGE_0, column_families_.size());
 
   std::unordered_set<std::string> found_cf_names;
-
   REPAIRER_LOG(logger_, "found column families: ");
   for (auto cf : column_families_) {
     found_cf_names.emplace(cf.name.c_str());
@@ -189,6 +209,10 @@ void CfRepairer::Help() { fprintf(stdout, "%s\n", USAGE); }
 
 void CfRepairer::OpenDB(bool read_only) {
   rocksdb::Status s;
+  if (FLAGS_wal_recovery_skip_corrupted) {
+      fprintf(stdout, "[%s] would use kSkipAnyCorruptedRecords to OpenDB", STAGE_1);
+      options_.wal_recovery_mode = rocksdb::WALRecoveryMode::kSkipAnyCorruptedRecords;
+  }
   if (read_only) {
     s = rocksdb::DB::OpenForReadOnly(options_, db_path_, column_families_,
                                      &cf_handles_, &db_);
@@ -220,14 +244,18 @@ void CfRepairer::Run(int argc, char** argv) {
   std::string comm(FLAGS_command);
 
   if (comm == "cf_sst_check") {
+    InitialTargetCf();
     OpenDB(true);
     RunSstCheck();
+  } else if (comm == "cf_show_sst_check_result") {
+    ReadCheckResults();
   } else if (comm == "cf_sst_archive") {
   } else if (comm == "cf_restore_health_sst") {
   } else {
     fprintf(stdout,
             " Unknown command: %s, available:\n"
-            "  cf_sst_check, cf_sst_archive, cf_restore_health_sst\n",
+            "  cf_sst_check, cf_sst_archive, cf_show_sst_check_result, "
+            "cf_restore_health_sst\n",
             comm.c_str());
   }
 
@@ -253,6 +281,11 @@ rocksdb::Status CfRepairer::CheckSst(const std::string& file_path) {
 
   rocksdb::Status s;
   s = dumper.VerifyChecksum();
+
+  if (FLAGS_verbose) {
+    REPAIRER_LOG(logger_, "[%s] sst file %s: %s", STAGE_2, file_path.c_str(),
+                 s.ToString().c_str());
+  }
 
   // we don't need to actually read every kv out?
   //
@@ -367,6 +400,12 @@ void CfRepairer::RunSstCheck() {
     fprintf(stdout, "[%s] [cf = %s] has found %ld sst files to check.\n",
             STAGE_2, cf.c_str(), cf_sst_files.size());
 
+    if (cf_sst_files.empty()) {
+      fprintf(stdout, "[%s] [cf = %s] has no ssts, skipped ... \n", STAGE_2,
+              cf.c_str());
+      continue;
+    }
+
     // chunk sst
     std::vector<std::vector<std::string>> chunked_sst_lists;
     ChunkSstFiles(cf_sst_files, &chunked_sst_lists);
@@ -416,10 +455,139 @@ void CfRepairer::RunSstCheck() {
             "[%s] [cf = %s] + all sst check workers results kept finished.\n",
             STAGE_2, cf.c_str());
   }
+
+  StoreCheckResults();
+  fprintf(stdout, "[%s] + store checking results into %s.\n", STAGE_2,
+          FLAGS_corrupt_sst_path.c_str());
+}
+
+void CfRepairer::StoreCheckResults() {
+  size_t total = 0;
+  for (const auto& i : corruption_ssts_) {
+    total += i.second.size();
+  }
+
+  std::string output_path(FLAGS_corrupt_sst_path);
+  const rocksdb::EnvOptions soptions;
+  std::unique_ptr<rocksdb::WritableFile> output_file;
+  rocksdb::Status s =
+      options_.env->NewWritableFile(output_path, &output_file, soptions);
+  if (!s.ok()) {
+    fprintf(stdout, "[%s] Open output file(%s) failed: %s \n", STAGE_3,
+            output_path.c_str(), s.ToString().c_str());
+    return;
+  }
+  fprintf(stdout, "[%s] Output %ld sst names to file: %s \n", STAGE_3, total,
+          output_path.c_str());
+
+  for (const auto& cf : corruption_ssts_) {
+    output_file->Append("CF:");
+    output_file->Append(cf.first);
+    output_file->Append(";");
+    for (const auto& item : cf.second) {
+      output_file->Append(item);
+      output_file->Append(",");
+    }
+    output_file->Append("\n");
+  }
+
+  if (total == 0) {
+    fprintf(stdout, "[%s] No corrupted sst found! \n", STAGE_3);
+  }
+  output_file->Fsync();
+  output_file->Close();
+}
+
+bool CfRepairer::ParseLine(const std::string& line, std::string* cf,
+                           std::vector<std::string>* ssts) {
+  cf->clear();
+  ssts->clear();
+  rocksdb::Slice s(line);
+
+  if (line.empty()) {
+    fprintf(stdout, "[%s] empty line, skip! \n", STAGE_4);
+    return false;
+  }
+  if (!s.starts_with("CF:")) {
+    fprintf(stdout, "[%s] parse failed, origianl text: %s \n", STAGE_4,
+            line.c_str());
+    return false;
+  }
+  std::string raw = line.substr(3);
+  std::vector<std::string> cf_and_ssts = rocksdb::StringSplit(raw, ';');
+  if (cf_and_ssts.size() != 2) {
+    fprintf(stdout, "[%s] parse failed, origianl text: %s \n", STAGE_4,
+            line.c_str());
+    return false;
+  }
+
+  cf->assign(cf_and_ssts[0]);
+  if (!cf_and_ssts[1].empty()) {
+    std::vector<std::string> sst_names =
+        rocksdb::StringSplit(cf_and_ssts[1], ',');
+    for (const auto& i : sst_names) {
+      if (!i.empty()) {
+        ssts->emplace_back(i);
+      }
+    }
+  }
+  fprintf(stdout, "[%s] parse success, cf = %s, sst counts = %ld \n", STAGE_4,
+          cf->c_str(), ssts->size());
+  return true;
+}
+
+void CfRepairer::ReadCheckResults() {
+  const rocksdb::EnvOptions soptions;
+  std::shared_ptr<rocksdb::FileSystem> fs = options_.env->GetFileSystem();
+  std::unique_ptr<rocksdb::LineFileReader> input_file;
+
+  std::string input_path(FLAGS_corrupt_sst_path);
+  rocksdb::Status s = rocksdb::LineFileReader::Create(
+      fs, input_path, rocksdb::FileOptions(), &input_file, nullptr, nullptr);
+  if (!s.ok()) {
+    fprintf(stdout, "[%s] Open input file(%s) failed: %s \n", STAGE_4,
+            input_path.c_str(), s.ToString().c_str());
+    return;
+  }
+
+  int lines = 0;
+  std::string buf;
+  std::string cf;
+  std::vector<std::string> ssts;
+
+  while (input_file->ReadLine(&buf, rocksdb::Env::IO_TOTAL)) {
+    if (ParseLine(buf, &cf, &ssts)) {
+      corruption_ssts_.insert(std::make_pair(cf, ssts));
+    }
+    lines++;
+  }
+  if (!buf.empty()) {
+    if (ParseLine(buf, &cf, &ssts)) {
+      corruption_ssts_.insert(std::make_pair(cf, ssts));
+    }
+  }
+
+  fprintf(stdout,
+          "[%s] read corrupted sst list from %s success, %d lines parsed\n",
+          STAGE_4, input_path.c_str(), lines);
+  ShowCorruptSsts();
+}
+
+void CfRepairer::ShowCorruptSsts() {
+  REPAIRER_LOG(logger_, "======Corrupted Ssts=======");
+  for (const auto& cf : corruption_ssts_) {
+    REPAIRER_LOG(logger_, "- CF: %s", cf.first.c_str());
+    std::string sst_list;
+    for (const auto& sst : cf.second) {
+      sst_list.append(sst);
+      sst_list.append(",");
+    }
+    REPAIRER_LOG(logger_, "   %s", sst_list.c_str());
+  }
+  REPAIRER_LOG(logger_, "===========================");
 }
 
 int main(int argc, char** argv) {
-  fprintf(stdout, "%d\n", argc);
   gflags::SetVersionString(rocksdb::GetRocksVersionAsString(true));
   gflags::SetUsageMessage(USAGE);
   if (argc < 2) {

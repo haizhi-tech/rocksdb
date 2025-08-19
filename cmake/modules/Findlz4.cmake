@@ -11,7 +11,8 @@ find_path(lz4_INCLUDE_DIRS
 
 find_library(lz4_LIBRARIES
   NAMES lz4
-  HINTS ${lz4_ROOT_DIR}/lib)
+  HINTS ${lz4_ROOT_DIR}/lib
+  HINTS ${lz4_ROOT_DIR}/lib64)
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(lz4 DEFAULT_MSG lz4_LIBRARIES lz4_INCLUDE_DIRS)
