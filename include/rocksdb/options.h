@@ -1535,6 +1535,11 @@ struct ReadOptions {
   // Default: true
   bool verify_checksums;
 
+  // If true, skip corrupted DATA blocks during iteration.
+  // WARNING: May result in missing data.
+  // Default: false
+  bool skip_corrupted_data_blocks;
+
   // Should the "data block"/"index block" read for this iteration be placed in
   // block cache?
   // Callers may wish to set this field to false for bulk scans.

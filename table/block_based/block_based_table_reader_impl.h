@@ -7,6 +7,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 #pragma once
+#include <cinttypes>
+
+#include "logging/logging.h"
 #include "table/block_based/block_based_table_reader.h"
 #include "table/block_based/reader_common.h"
 
@@ -66,6 +69,15 @@ TBlockIter* BlockBasedTable::NewDataBlockIterator(
 
   if (!s.ok()) {
     assert(block.IsEmpty());
+    // Check if we should skip corrupted data blocks
+    if (s.IsCorruption() && ro.skip_corrupted_data_blocks &&
+        block_type == BlockType::kData) {
+      ROCKS_LOG_WARN(rep_->ioptions.logger,
+                     "Skipping corrupted data block at offset %" PRIu64,
+                     handle.offset());
+      iter->Invalidate(Status::OK());
+      return iter;
+    }
     iter->Invalidate(s);
     return iter;
   }
