@@ -209,9 +209,13 @@ void CfRepairer::Help() { fprintf(stdout, "%s\n", USAGE); }
 
 void CfRepairer::OpenDB(bool read_only) {
   rocksdb::Status s;
+  REPAIRER_LOG(logger_, "[%s] Try to OpenDB: %s, readonly: %d ...\n", STAGE_1,
+               db_path_.c_str(), read_only);
   if (FLAGS_wal_recovery_skip_corrupted) {
-      fprintf(stdout, "[%s] would use kSkipAnyCorruptedRecords to OpenDB", STAGE_1);
-      options_.wal_recovery_mode = rocksdb::WALRecoveryMode::kSkipAnyCorruptedRecords;
+    fprintf(stdout, "[%s] would use kSkipAnyCorruptedRecords to OpenDB",
+            STAGE_1);
+    options_.wal_recovery_mode =
+        rocksdb::WALRecoveryMode::kSkipAnyCorruptedRecords;
   }
   if (read_only) {
     s = rocksdb::DB::OpenForReadOnly(options_, db_path_, column_families_,
@@ -224,6 +228,7 @@ void CfRepairer::OpenDB(bool read_only) {
     fprintf(stdout, "[%s] OpenDB failed: %s\n", STAGE_1, s.ToString().c_str());
     exit(-1);
   }
+  REPAIRER_LOG(logger_, "[%s] OpenDB done.\n", STAGE_1);
 }
 
 void CfRepairer::CloseDB() {
@@ -254,8 +259,8 @@ void CfRepairer::Run(int argc, char** argv) {
   } else {
     fprintf(stdout,
             " Unknown command: %s, available:\n"
-            "  cf_sst_check, cf_sst_archive, cf_show_sst_check_result, "
-            "cf_restore_health_sst\n",
+            "  cf_sst_check, cf_show_sst_check_result, "
+            "cf_restore_health_sst, cf_sst_archive\n",
             comm.c_str());
   }
 
@@ -515,10 +520,14 @@ bool CfRepairer::ParseLine(const std::string& line, std::string* cf,
   }
   std::string raw = line.substr(3);
   std::vector<std::string> cf_and_ssts = rocksdb::StringSplit(raw, ';');
-  if (cf_and_ssts.size() != 2) {
+  if (cf_and_ssts.size() > 2) {
     fprintf(stdout, "[%s] parse failed, origianl text: %s \n", STAGE_4,
             line.c_str());
     return false;
+  }
+
+  if (cf_and_ssts.size() == 1) {
+    cf_and_ssts.push_back("");
   }
 
   cf->assign(cf_and_ssts[0]);
@@ -582,7 +591,8 @@ void CfRepairer::ShowCorruptSsts() {
       sst_list.append(sst);
       sst_list.append(",");
     }
-    REPAIRER_LOG(logger_, "   %s", sst_list.c_str());
+    REPAIRER_LOG(logger_, "   %s",
+                 sst_list.empty() ? "<EMPTY>" : sst_list.c_str());
   }
   REPAIRER_LOG(logger_, "===========================");
 }
