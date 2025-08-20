@@ -1,6 +1,10 @@
 set(CORE_TOOLS
   sst_dump.cc
-  ldb.cc)
+  ldb.cc
+  cf_repairer.cc
+  sst_corrupt_tool.cc
+  create_test_db.cc
+  print_all_keys.cc)
 foreach(src ${CORE_TOOLS})
   get_filename_component(exename ${src} NAME_WE)
   add_executable(${exename}${ARTIFACT_SUFFIX}
@@ -15,10 +19,7 @@ if(WITH_TOOLS)
     write_stress.cc
     db_repl_stress.cc
     dump/rocksdb_dump.cc
-    dump/rocksdb_undump.cc
-    sst_corrupt_tool.cc
-    cf_repairer.cc
-    create_test_db.cc)
+    dump/rocksdb_undump.cc)
   foreach(src ${TOOLS})
     get_filename_component(exename ${src} NAME_WE)
     add_executable(${exename}${ARTIFACT_SUFFIX}
